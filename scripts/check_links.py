@@ -53,7 +53,7 @@ def is_skipped(url: str) -> bool:
         domain = url.split("/")[2]
     except IndexError:
         return True  # malformed URL
-    if any(skip == domain or domain.endswith("." + skip) for skip in SKIP_DOMAINS):
+    if domain in SKIP_DOMAINS or any(domain.endswith("." + skip) for skip in SKIP_DOMAINS):
         return True
     if any(domain.endswith(suffix) for suffix in SKIP_DOMAIN_SUFFIXES):
         return True

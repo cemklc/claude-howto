@@ -359,16 +359,22 @@ class MermaidRenderer:
 
 def extract_all_mermaid_blocks(
     md_files: list[tuple[Path, str]], logger: logging.Logger
-) -> list[tuple[int, str]]:
-    """Extract all unique Mermaid code blocks from markdown files."""
+) -> tuple[list[tuple[int, str]], dict[Path, str]]:
+    """Extract all unique Mermaid code blocks from markdown files.
+
+    Returns a tuple of (diagrams, content_cache) so callers can reuse the
+    already-read file contents instead of reading each file a second time.
+    """
     pattern = r"```mermaid\n(.*?)```"
     seen: set[str] = set()
     diagrams: list[tuple[int, str]] = []
+    content_cache: dict[Path, str] = {}
     counter = 0
 
     for file_path, _ in md_files:
         try:
             content = file_path.read_text(encoding="utf-8")
+            content_cache[file_path] = content
             for match in re.finditer(pattern, content, flags=re.DOTALL):
                 code = match.group(1).strip()
                 if code not in seen:
@@ -379,7 +385,7 @@ def extract_all_mermaid_blocks(
             logger.warning(f"Failed to read {file_path}: {e}")
 
     logger.info(f"Found {len(diagrams)} unique Mermaid diagrams")
-    return diagrams
+    return diagrams, content_cache
 
 
 # =============================================================================
@@ -891,7 +897,7 @@ async def build_epub_async(
     # Extract and pre-fetch all Mermaid diagrams
     logger.info("Extracting Mermaid diagrams...")
     md_files = [(ch.file_path, ch.file_title) for ch in chapter_infos]
-    all_diagrams = extract_all_mermaid_blocks(md_files, logger)
+    all_diagrams, content_cache = extract_all_mermaid_blocks(md_files, logger)
 
     if all_diagrams:
         renderer = MermaidRenderer(config, state, logger)
@@ -907,7 +913,7 @@ async def build_epub_async(
 
     for chapter_info in chapter_infos:
         try:
-            content = chapter_info.file_path.read_text(encoding="utf-8")
+            content = content_cache.get(chapter_info.file_path) or chapter_info.file_path.read_text(encoding="utf-8")
         except UnicodeDecodeError as e:
             logger.error(f"Failed to read {chapter_info.file_path}: {e}")
             raise ValidationError(

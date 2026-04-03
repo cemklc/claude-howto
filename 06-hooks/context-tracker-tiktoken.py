@@ -24,8 +24,10 @@ try:
     import tiktoken
 
     TIKTOKEN_AVAILABLE = True
+    _enc = tiktoken.get_encoding("p50k_base")
 except ImportError:
     TIKTOKEN_AVAILABLE = False
+    _enc = None
     print(
         "Warning: tiktoken not installed. Install with: pip install tiktoken",
         file=sys.stderr,
@@ -51,9 +53,8 @@ def count_tokens(text: str) -> int:
     tiktoken with p50k_base is a reasonable approximation since both
     Claude and GPT models use BPE (byte-pair encoding).
     """
-    if TIKTOKEN_AVAILABLE:
-        enc = tiktoken.get_encoding("p50k_base")
-        return len(enc.encode(text))
+    if _enc is not None:
+        return len(_enc.encode(text))
     else:
         # Fallback to character estimation (~4 chars per token)
         return len(text) // 4
